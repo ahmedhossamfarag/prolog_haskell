@@ -1,0 +1,71 @@
+Project Description
+You are required to implement an interpreter for a mini-Prolog language. The interpreter should be able
+to answer queries written in a special notation, which you will dene.
+In order to answer a query, the rules of the knowledge base should be explored one after the other, in
+the same order they are given to your interpreter. Once a query unies with a fact, it succeeds. When a
+query unies with the head of a rule, the goals specied in the body of that rule have to be proven in
+order for the query to succeed.
+The following restrictions will be made about our mini-Prolog language for simplicity:
+• A term will be either a variable or a constant. Our language will not include function symbols with
+arity bigger than zero.
+• Every fact or rule in the given knowledge base will have in its head an argument list of constants
+and/or distinct variable names. The names of the constants could be anything. However, the
+variable names in the knowledge base will be chosen from the set { M, N, ... , X, Y, Z }.
+• No variable will appear in the body of a rule unless it appears in its head.
+• No body of any rule will contain negation or recursion.
+• The list of arguments in a given query will consist of constants and/or distinct variable names.
+• The variable names used in queries will be chosen from the set { A, B, ... , J, K, L }. Hence, all
+variables appearing in queries can be considered fresh variables for the rules in the knowledge base.
+In order to implement the interpreter, you are required to do the following:
+a) Dene data types for the following:
+• Term: A term is either a constant or a variable. The name of the term is a String.
+• Predicate: A predicate is represented by its name and list of arguments. The arguments are
+terms.
+• Goals: A (possibly empty) collection of goal predicates. For simplicity, you only have to handle
+goals which are logically ANDed, i.e., must all hold.
+• Rule: A rule consists of a head and a body. The head is a simple Predicate while the body
+is of type Goals. Note that a fact can be represented as a rule with an empty body.
+• Solution: A solution is either No (failure) or Yes (success). In case of success, the solution
+should also include the list of variable substitutions required.
+b) Implement the function unifyWithHead which evaluates the solution for unifying two predicates.
+The input to this function will be:
+• A predicate representing the query or the goal.
+• A predicate representing the head of a rule in the knowledge base.
+• The current solution which indicates which variables are bound and their substituted values.
+2The output of this function will be of type Solution. Hence, the new solution will be either:
+• No if the unication is not possible.
+• Yes and the (updated) list of variable substitutions.
+c) Implement the function applySolSubInBody. The input to this function will be a success Solution and a body of type Goals. The function should evaluate the new body in which the variable
+substitions of the solution are applied.
+d) Implement the function allSolutions. The input to this function will be a predicate representing
+a query and a list of rules representing the knowledge base. The function should evaluate the
+query according to the given knowledge base. The function should output a list of type Solution
+representing all possible solutions to the given query. If the query fails (has no solutions at all), the
+output will be an empty list.
+Sample Test
+The following knowledge base and sample queries should be translated to your notation as a test case,
+according to your implementation of the datatypes dened in part a. You have to submit a text le
+representing the test case in your notation.
+Important Note: the test case is not a guarantee that your code is 100% correct. It is untimately your
+responsibility to check that your code is logically correct.
+male(timmy).
+male(alex).
+male(slim).
+male(azmy).
+male(remon).
+female(amira).
+female(reem).
+female(wanda).
+parent(slim,amira).
+parent(wanda,timmy).
+parent(azmy,reem).
+parent(azmy,remon).
+father(X,Y):- male(X),
+parent(X,Y).
+daughterFather(X,Y):- father(Y,X), female(X).
+?- male(A).
+?- female(A).
+?- parent(A,B).
+?- parent(A,reem).
+?- parent(A,alex).
+?- father(A,B).

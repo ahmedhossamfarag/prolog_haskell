@@ -1,0 +1,142 @@
+data Term = Const String
+            |VarName Char
+            deriving (Eq,Show)
+type TermList = [Term]
+
+data Predicate = Predicate {name::String,args::TermList} deriving Show
+
+type Goals = [Predicate]
+
+data Rule = Rule {rHead::Predicate,body::Goals}
+type RuleList = [Rule]
+
+data Var = Var Char String deriving Show
+type VarList = [Var]
+
+data Result = Yes | No deriving (Eq,Show)
+
+data Solution = Solution Result VarList deriving Show
+type SolutionList = [Solution]
+
+canMatchTerm :: Term -> Term -> Bool
+canMatchTerm (Const c1) (Const c2) = c1 == c2
+canMatchTerm _ _ = True
+
+canMatchArgs :: TermList -> TermList -> Bool
+canMatchArgs [] [] = True
+canMatchArgs t1 t2 
+            | canMatchTerm (head t1) (head t2) = canMatchArgs (tail t1) (tail t2)
+            | otherwise = False
+
+matchTerm :: Term -> Term -> VarList
+matchTerm (Const c) (VarName v) = [(Var v c)]
+matchTerm _ _ = []
+
+matchArgs :: TermList -> TermList -> VarList
+matchArgs [] [] = []
+matchArgs t1 t2 = (matchTerm (head t1) (head t2)) ++ (matchArgs (tail t1) (tail t2))
+
+canSubTerm :: Var -> Term -> Bool
+canSubTerm _ (Const _) = False
+canSubTerm (Var nm _) (VarName v) = nm == v
+
+subValue :: Var -> Term -> Term
+subValue (Var _ vlu) (VarName _) = (Const vlu)
+
+subTerm :: VarList -> Term -> Term
+subTerm [] t = t
+subTerm vl t 
+            | canSubTerm (head vl) t = subValue (head vl) t
+            | otherwise = subTerm (tail vl) t
+
+
+subArgs :: VarList -> TermList -> TermList
+subArgs _ [] = []
+subArgs vl tl = [(subTerm vl (head tl))] ++ (subArgs vl (tail tl))
+
+subPredicate :: VarList -> Predicate -> Predicate
+subPredicate vl (Predicate {name=nm,args=terms}) = (Predicate {name=nm,args=subArgs vl terms})
+
+subGoals :: VarList -> Goals -> Goals
+subGoals [] gl = gl
+subGoals vl [] = []
+subGoals vl gl = [(subPredicate vl (head gl))] ++ (subGoals vl (tail gl))
+
+unifyWithPredicate :: Predicate -> Predicate -> [VarList]
+unifyWithPredicate (Predicate {name=nm1,args=terms1}) (Predicate {name=nm2,args=terms2})
+    | (nm1 == nm2) && (canMatchArgs terms1 terms2) = [(matchArgs terms1 terms2)]
+    | otherwise = []
+    
+unifyWithGoals :: Predicate -> Goals -> [VarList]
+unifyWithGoals p [] = []
+unifyWithGoals p gl = (unifyWithPredicate (head gl) p) ++ (unifyWithGoals p (tail gl))
+
+updatePredicate :: Predicate -> Predicate -> (Predicate,VarList)
+updatePredicate (Predicate {name=_,args=terms1}) (Predicate {name=nm,args=terms2}) = (p,vl) where
+        vl = matchArgs terms1 terms2
+        p = (Predicate {name=nm,args=subArgs vl terms2})
+        
+solveGoals :: Goals -> Goals -> SolutionList
+solveGoalsAll :: [VarList] -> Goals -> Goals -> SolutionList
+solveGoals [] _ = [Solution Yes []]
+solveGoals gl src = out where 
+        vl = unifyWithGoals (head gl) src
+        out = solveGoalsAll vl (tail gl) src
+    
+mergeSol :: VarList -> Solution -> Solution
+mergeSol l1 (Solution r l2) = Solution r (l2++l1)
+
+solveGoalsAll [] _ _ = [Solution No []]
+solveGoalsAll vl gl src = out where
+    gl1 = subGoals (head vl) gl
+    sols1 = solveGoals gl1 src
+    sols2 = [mergeSol (head vl) x | x <- sols1] 
+    sols3 = (solveGoalsAll (tail vl) gl src)
+    out = sols2 ++ sols3
+    
+    
+canSolveRule :: Predicate -> Rule -> Bool
+canSolveRule (Predicate {name=nm1,args=_}) (Rule {rHead=(Predicate {name=nm2,args=_}),body=_}) = nm1 == nm2
+
+finalTerms :: Solution -> Predicate -> Predicate -> SolutionList
+finalTerms (Solution r l) (Predicate {name=_,args=terms1}) (Predicate {name=_,args=terms2}) 
+    | r == No = []
+    | otherwise = [Solution r (matchArgs termsS terms1)] where
+        termsS = subArgs l terms2
+
+finalSol :: SolutionList -> Predicate -> Predicate -> SolutionList
+finalSol [] _ _ = []
+finalSol sls p h = (finalTerms (head sls) p h) ++ (finalSol (tail sls) p h)
+
+solveRule :: Predicate -> Rule -> Goals -> SolutionList
+solveRule p (Rule {rHead=h,body=gl}) src = out where
+    (p1,vl1) = updatePredicate p h
+    gl1 = subGoals vl1 gl
+    sols1 = solveGoals gl1 src
+    sols2 = [mergeSol vl1 x | x <- sols1] 
+    out = finalSol sols2 p h
+    
+solveRules :: Predicate -> RuleList -> Goals -> SolutionList
+solveRules p [] _ = []
+solveRules p rl src
+        | canSolveRule p (head rl) = (solveRule p (head rl) src) ++ (solveRules p (tail rl) src)
+        | otherwise = solveRules p (tail rl) src
+
+main = do
+
+    let src = [(Predicate {name="male",args=[Const "timmy"]}), (Predicate {name="male",args=[Const "alex"]}), (Predicate {name="male",args=[Const "slim"]}), (Predicate {name="male",args=[Const "azmy"]}), (Predicate {name="male",args=[Const "remon"]}), (Predicate {name="female",args=[Const "amira"]}), (Predicate {name="female",args=[Const "reem"]}), (Predicate {name="female",args=[Const "wanda"]}),(Predicate {name="parent",args=[Const "slim", Const "amira"]}), (Predicate {name="parent",args=[Const "wanda", Const "timmy"]}), (Predicate {name="parent",args=[Const "azmy", Const "reem"]}), (Predicate {name="parent",args=[Const "azmy", Const "remon"]})]
+    let rules = [Rule {rHead=(Predicate {name="father",args=[VarName 'X', VarName 'Y']}), body=[(Predicate {name="male",args=[VarName 'X']}),(Predicate {name="parent",args=[VarName 'X', VarName 'Y']})]}]
+    let p1 = (Predicate {name="male",args=[VarName 'X']})
+    print(show (unifyWithGoals p1 src))
+    let p2 = (Predicate {name="female",args=[VarName 'X']})
+    print(show (unifyWithGoals p2 src))
+    let p3 = (Predicate {name="parent",args=[VarName 'X', VarName 'Y']})
+    print(show (unifyWithGoals p3 src))
+    let p4 = (Predicate {name="parent",args=[VarName 'X', Const "reem"]})
+    print(show (unifyWithGoals p4 src))
+    let p5 = (Predicate {name="parent",args=[VarName 'X', Const "alex"]})
+    print(show (unifyWithGoals p5 src))
+    let p6 = (Predicate {name="father",args=[VarName 'X', VarName 'Y']})
+    print(show (solveRules p6 rules src))
+    let p7 = (Predicate {name="father",args=[Const "slim", VarName 'Y']})
+    print(show (solveRules p7 rules src))
